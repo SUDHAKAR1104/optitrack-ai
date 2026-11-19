@@ -137,14 +137,17 @@
         <div class="gimbal-header">
           <div>
             <div class="gimbal-title">🔭 Virtual Gimbal View</div>
-            <div class="gimbal-sub">Real-time FSOC receiver pointing simulation</div>
+            <div class="gimbal-sub">Real-time FSOC receiver pointing simulation — rings at 60 / 120 / 180 / 240 px radius</div>
           </div>
           <button class="cam-pill-btn" id="btn-run-all-benchmarks" style="font-size:11.5px;">⚡ Run Benchmark</button>
         </div>
-        <!-- world-canvas: simulator.js reads its own .width/.height so set both attrs -->
-        <canvas id="world-canvas" width="860" height="260" style="width:100%;height:260px;display:block;background:#050810;border-radius:10px;"></canvas>
+        <!-- world-canvas needs at least 560×560 so all 4 rings (r=240) fit inside canvas.
+             simulator.js uses canvas.width & canvas.height directly to place cx/cy center. -->
+        <div class="gimbal-canvas-wrap">
+          <canvas id="world-canvas" width="860" height="560"></canvas>
+        </div>
         <!-- Mask preview inserted here by detector.js -->
-        <div id="mask-preview-container" style="margin-top:8px;"></div>
+        <div id="mask-preview-container" style="margin-top:10px;"></div>
       </div>
 
     </div><!-- /camera-col -->
@@ -488,15 +491,20 @@ window.addEventListener('load', function() {
     });
   }
 
-  // ── Resize world-canvas to match its container width ──
+  // ── Resize world-canvas to match its container width, keep proper height ──
   function resizeGimbal() {
     var wc = document.getElementById('world-canvas');
     if (!wc) return;
-    var parent = wc.parentElement;
-    if (!parent) return;
-    var w = parent.clientWidth || 860;
+    var wrap = wc.parentElement;
+    if (!wrap) return;
+    var w = Math.max(wrap.clientWidth, 600);
+    // Height must accommodate outermost ring (r=240) centered:
+    // cy = h/2, bottom ring bottom = cy + 240 → h must be >= 560
+    var h = Math.max(Math.round(w * 0.65), 560);
     wc.width  = w;
-    wc.height = 260;
+    wc.height = h;
+    // also set CSS display size
+    wc.style.height = h + 'px';
   }
   resizeGimbal();
   window.addEventListener('resize', resizeGimbal);

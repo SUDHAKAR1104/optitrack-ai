@@ -206,12 +206,24 @@ details > summary::-webkit-details-marker{display:none}
 }
 .gimbal-title{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;color:var(--text)}
 .gimbal-sub{font-size:11px;color:var(--text-3);margin-top:2px}
+
+/* Canvas wrap: makes the canvas scrollable horizontally if needed on small screens */
+.gimbal-canvas-wrap{
+  width:100%;
+  overflow:hidden;         /* hide overflow, canvas will fill width */
+  border-radius:10px;
+  background:#050810;
+  border:1px solid rgba(6,182,212,.12);
+}
 #world-canvas{
-  width:100%;display:block;border-radius:10px;
+  display:block;
+  /* width/height driven by JS resizeGimbal() — do NOT set fixed height here */
+  width:100%;
   background:#050810;
 }
 #mask-preview-container canvas{
   width:100%;border-radius:8px;border:1px solid rgba(6,182,212,.2);
+  margin-top:4px;
 }
 
 /* ── Main Start Button ── */
