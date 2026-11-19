@@ -5,9 +5,9 @@
 class CameraPIDController {
   constructor() {
     // PID Gains (Tuned for FSOC coarse alignment)
-    this.kp = 0.45;
-    this.ki = 0.04;
-    this.kd = 0.18;
+    this.kp = 0.52;   // higher proportional for faster acquisition
+    this.ki = 0.02;   // lower integral to prevent windup overshoot
+    this.kd = 0.22;   // higher derivative for better damping
 
     // Error accumulators
     this.integralX = 0;
@@ -18,7 +18,7 @@ class CameraPIDController {
     // Actuator constraints
     this.maxIntegral = 200.0;    // Anti-windup clamp
     this.maxSlewRate = 450.0;     // Max px/s angular slew rate
-    this.deadband = 1.5;          // Sub-pixel deadband to suppress actuator hunting jitter
+    this.deadband = 0.8;          // 0.8px sub-pixel deadband for maximum precision
 
     // Current camera position (relative to world origin)
     this.pan = 0.0;
@@ -156,10 +156,10 @@ class CameraPIDController {
     let uX = this.kp * errorX + this.ki * this.integralX + this.kd * derivX;
     let uY = this.kp * errorY + this.ki * this.integralY + this.kd * derivY;
 
-    // Slew Rate Limiter (Max px/s)
+    // Slew Rate Limiter (Max px per frame)
     const maxDelta = this.maxSlewRate * dt;
-    uX = Math.max(-maxDelta, Math.min(maxDelta, uX * dt * 30));
-    uY = Math.max(-maxDelta, Math.min(maxDelta, uY * dt * 30));
+    uX = Math.max(-maxDelta, Math.min(maxDelta, uX));
+    uY = Math.max(-maxDelta, Math.min(maxDelta, uY));
 
     // Update Camera Gimbal Pan & Tilt
     this.pan += uX;

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * OptiTrack AI - Ultra-Precision Universal AI Detection Engine
  * Deep Learning 80-Class Detection (Humans, Animals, Objects, Electronics)
  * Features:
@@ -41,10 +41,10 @@ class UniversalAIDetector {
     this.hueMin = 0;
     this.hueMax = 360;
     this.satMin = 0;
-    this.valMin = 65;
-    this.minIntensity = 160;
-    this.minArea = 8;
-    this.maxArea = 20000;
+    this.valMin = 70;
+    this.minIntensity = 180;   // higher = only bright light sources
+    this.minArea = 4;           // detect even tiny beacons
+    this.maxArea = 15000;
 
     // Off-screen canvas for binary mask preview
     this.maskCanvas = document.createElement('canvas');
@@ -437,7 +437,8 @@ class UniversalAIDetector {
   }
 
   /**
-   * Sub-pixel optical beacon & flashlight detection
+   * Sub-pixel optical beacon detection v2 — step=1, connected-component isolation,
+   * Gaussian intensity weighting, circularity + size gating.
    */
   detectOpticalBeacon(canvas, width, height, predictedPos = null) {
     const ctx = canvas.getContext('2d');
@@ -452,83 +453,163 @@ class UniversalAIDetector {
     const maskData = this.maskCtx.createImageData(rw, rh);
     const maskPixels = maskData.data;
 
-    const step = 2;
-    let totalMom00 = 0, totalMom10 = 0, totalMom01 = 0, matchingPixels = 0;
-    let minX = rw, maxX = 0, minY = rh, maxY = 0;
-
-    for (let y = 0; y < rh; y += step) {
-      for (let x = 0; x < rw; x += step) {
+    // ── PASS 1: build intensity mask (step=1 for sub-pixel precision) ──
+    const hot = new Uint8Array(rw * rh); // 1 = candidate pixel
+    for (let y = 0; y < rh; y++) {
+      for (let x = 0; x < rw; x++) {
         const idx = (y * rw + x) * 4;
         const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-        const intensity = 0.299 * r + 0.587 * g + 0.114 * b;
-
-        if (intensity < this.minIntensity) continue;
+        // Luminance
+        const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        if (lum < this.minIntensity) continue;
 
         const [h, s, v] = this.rgbToHsv(r, g, b);
-        let colorMatch = false;
+        let colorMatch;
         if (this.hueMin <= this.hueMax) {
           colorMatch = (h >= this.hueMin && h <= this.hueMax);
         } else {
           colorMatch = (h >= this.hueMin || h <= this.hueMax);
         }
-
         if (colorMatch && s >= this.satMin && v >= this.valMin) {
-          const maskIdx = (y * rw + x) * 4;
-          maskPixels[maskIdx] = 236;
-          maskPixels[maskIdx + 1] = 72;
-          maskPixels[maskIdx + 2] = 153;
-          maskPixels[maskIdx + 3] = 255;
-
-          const weight = intensity * intensity;
-          totalMom00 += weight;
-          totalMom10 += x * weight;
-          totalMom01 += y * weight;
-          matchingPixels++;
-
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
+          hot[y * rw + x] = 1;
+          const mi = idx;
+          maskPixels[mi] = 236; maskPixels[mi+1] = 72;
+          maskPixels[mi+2] = 153; maskPixels[mi+3] = 180;
         }
+      }
+    }
+
+    // ── PASS 2: connected-component labeling (4-connected flood fill) ──
+    // Find all blobs and pick the one best matching a beacon (high circularity + near prediction)
+    const labels = new Int32Array(rw * rh);
+    let nextLabel = 1;
+    const blobs = []; // array of {pixels:[{x,y,lum}], minX,maxX,minY,maxY}
+
+    const stack = [];
+    for (let sy = 0; sy < rh; sy++) {
+      for (let sx = 0; sx < rw; sx++) {
+        const pidx = sy * rw + sx;
+        if (!hot[pidx] || labels[pidx]) continue;
+
+        // BFS flood fill
+        const label = nextLabel++;
+        const blob = { pixels: [], minX: sx, maxX: sx, minY: sy, maxY: sy };
+        stack.length = 0;
+        stack.push(pidx);
+        labels[pidx] = label;
+
+        while (stack.length > 0) {
+          const p = stack.pop();
+          const px = p % rw, py = (p / rw) | 0;
+          const cidx = (py * rw + px) * 4;
+          const r2 = data[cidx], g2 = data[cidx+1], b2 = data[cidx+2];
+          const lum2 = 0.2126 * r2 + 0.7152 * g2 + 0.0722 * b2;
+          blob.pixels.push({ x: px, y: py, lum: lum2 });
+          if (px < blob.minX) blob.minX = px;
+          if (px > blob.maxX) blob.maxX = px;
+          if (py < blob.minY) blob.minY = py;
+          if (py > blob.maxY) blob.maxY = py;
+
+          // 4-connected neighbours
+          const neighbours = [p - 1, p + 1, p - rw, p + rw];
+          for (const n of neighbours) {
+            if (n < 0 || n >= rw * rh) continue;
+            const nx = n % rw, ny = (n / rw) | 0;
+            if (nx < 0 || nx >= rw || ny < 0 || ny >= rh) continue;
+            if (hot[n] && !labels[n]) {
+              labels[n] = label;
+              stack.push(n);
+            }
+          }
+        }
+        if (blob.pixels.length >= 1) blobs.push(blob);
       }
     }
 
     this.maskCtx.putImageData(maskData, 0, 0);
 
-    if (totalMom00 <= 0 || matchingPixels < this.minArea / 4) {
-      return null;
+    if (blobs.length === 0) return null;
+
+    // ── PASS 3: score each blob ──
+    let bestBlob = null, bestScore = -Infinity;
+
+    for (const blob of blobs) {
+      const area = blob.pixels.length;
+      if (area < this.minArea || area > this.maxArea) continue;
+
+      // Sub-pixel centroid via Gaussian (lum²) weighting
+      let m00 = 0, m10 = 0, m01 = 0;
+      for (const p of blob.pixels) {
+        const w = p.lum * p.lum;
+        m00 += w; m10 += p.x * w; m01 += p.y * w;
+      }
+      if (m00 <= 0) continue;
+      const cx = m10 / m00;
+      const cy = m01 / m00;
+
+      // Bounding box
+      const bw = blob.maxX - blob.minX + 1;
+      const bh = blob.maxY - blob.minY + 1;
+
+      // Circularity: 4π·area / perimeter²  (1.0 = perfect circle)
+      const perimeter = 2 * (bw + bh);
+      const circularity = (4 * Math.PI * area) / (perimeter * perimeter + 1e-9);
+
+      // Compactness: how filled is the bounding box
+      const compactness = area / Math.max(1, bw * bh);
+
+      // Peak luminance (use max lum of pixels)
+      const peakLum = blob.pixels.reduce((mx, p) => Math.max(mx, p.lum), 0);
+
+      // Proximity to Kalman prediction (if available)
+      let proximityScore = 0;
+      if (predictedPos && predictedPos.x !== undefined) {
+        const dist = Math.hypot(cx - predictedPos.x, cy - predictedPos.y);
+        proximityScore = Math.exp(-dist / 80); // peaks at 1 when on prediction
+      }
+
+      // Combined score: weight circularity, brightness, prediction proximity
+      const score = (circularity * 0.35) +
+                    (compactness  * 0.20) +
+                    (peakLum / 255 * 0.25) +
+                    (proximityScore * 0.20);
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestBlob = { blob, cx, cy, area, bw, bh, circularity, compactness, peakLum, score };
+      }
     }
 
-    const cx = totalMom10 / totalMom00;
-    const cy = totalMom01 / totalMom00;
-    const bboxW = (maxX - minX) + 1;
-    const bboxH = (maxY - minY) + 1;
-    const area = matchingPixels * step * step;
-    const perimeter = 2 * (bboxW + bboxH);
-    const circularity = (4 * Math.PI * area) / (perimeter * perimeter);
+    if (!bestBlob) return null;
 
-    const sizeScore = Math.min(1.0, area / 50);
-    const circScore = Math.min(1.0, circularity / 0.6);
-    const confidence = Math.min(1.0, 0.5 * sizeScore + 0.5 * circScore);
+    const { blob, cx, cy, area, bw, bh, circularity, peakLum } = bestBlob;
+
+    // ── Confidence: combination of circularity + size + brightness ──
+    const sizeScore  = Math.min(1.0, area / 60);
+    const circScore  = Math.min(1.0, circularity / 0.65);
+    const lumScore   = peakLum / 255;
+    const confidence = Math.min(0.99, 0.35 * sizeScore + 0.40 * circScore + 0.25 * lumScore);
+
+    if (confidence < 0.15) return null; // reject very weak candidates
 
     return {
-      id: 'BEACON-OPTICAL',
+      id:       'BEACON-OPTICAL',
       category: 'BEACON',
-      class: 'OPTICAL BEACON',
+      class:    'OPTICAL BEACON',
       rawClass: 'optical beacon',
-      icon: '🔦',
-      color: '#ec4899',
-      confidence: confidence,
+      icon:     '💡',
+      color:    '#ec4899',
+      confidence,
       x: cx,
       y: cy,
       bbox: {
-        x: Math.max(0, minX - 4),
-        y: Math.max(0, minY - 4),
-        w: bboxW + 8,
-        h: bboxH + 8
+        x: Math.max(0, blob.minX - 6),
+        y: Math.max(0, blob.minY - 6),
+        w: bw + 12,
+        h: bh + 12
       },
-      isBeacon: true,
-      circularity: circularity
+      isBeacon:    true,
+      circularity
     };
   }
 
@@ -587,3 +668,4 @@ class UniversalAIDetector {
 
 window.UniversalAIDetector = UniversalAIDetector;
 window.OpticalBeaconDetector = UniversalAIDetector;
+

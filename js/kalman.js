@@ -4,7 +4,7 @@
  * Observation: z = [zx, zy]^T
  */
 class KinematicKalmanFilter {
-  constructor(processNoise = 1.2, measurementNoise = 3.5) {
+  constructor(processNoise = 0.8, measurementNoise = 2.0) {
     this.q = processNoise;
     this.r = measurementNoise;
     
@@ -13,10 +13,10 @@ class KinematicKalmanFilter {
     
     // Covariance matrix P (4x4)
     this.P = [
-      [20, 0, 0, 0],
-      [0, 20, 0, 0],
-      [0, 0, 50, 0],
-      [0, 0, 0, 50]
+      [15, 0, 0, 0],
+      [0, 15, 0, 0],
+      [0, 0, 30, 0],
+      [0, 0, 0, 30]
     ];
     
     this.initialized = false;
@@ -32,17 +32,17 @@ class KinematicKalmanFilter {
   init(x, y, vx = 0, vy = 0) {
     this.x = [x, y, vx, vy];
     this.P = [
-      [10, 0, 0, 0],
-      [0, 10, 0, 0],
-      [0, 0, 25, 0],
-      [0, 0, 0, 25]
+      [5, 0, 0, 0],
+      [0, 5, 0, 0],
+      [0, 0, 15, 0],
+      [0, 0, 0, 15]
     ];
     this.initialized = true;
   }
 
   predict(dt) {
     if (!this.initialized) return;
-    dt = Math.max(0.001, Math.min(0.2, dt));
+    dt = Math.max(0.001, Math.min(0.05, dt)); // clamp to 50ms max (20fps min)
 
     // x_prior = F * x
     const x = this.x[0] + this.x[2] * dt;
@@ -153,23 +153,29 @@ class KinematicKalmanFilter {
     this.P = newP;
   }
 
-  // Multi-step forward extrapolation
+  // Multi-step forward extrapolation with velocity decay for realism
   forecast(dt) {
     if (!this.initialized) return [];
     const path = [];
-    let curX = this.x[0];
-    let curY = this.x[1];
-    const vx = this.x[2];
-    const vy = this.x[3];
+    let fx = this.x[0];
+    let fy = this.x[1];
+    let fvx = this.x[2];
+    let fvy = this.x[3];
+    const decay = 0.98; // slight velocity decay per step (realistic deceleration)
 
     for (let k = 1; k <= this.predictionHorizon; k++) {
-      path.push({
-        step: k,
-        x: curX + vx * (k * dt),
-        y: curY + vy * (k * dt)
-      });
+      fx  += fvx * dt;
+      fy  += fvy * dt;
+      fvx *= decay;
+      fvy *= decay;
+      path.push({ step: k, x: fx, y: fy });
     }
     return path;
+  }
+
+  // Returns 1-sigma position uncertainty radius in pixels
+  getUncertaintyRadius() {
+    return Math.sqrt(Math.max(0, this.P[0][0] + this.P[1][1]));
   }
 
   getState() {
