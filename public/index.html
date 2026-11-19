@@ -6,22 +6,21 @@
   <title>OptiTrack AI — ISRO SIH26169</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="css/styles.css"/>
-  <!-- AI Engine -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 </head>
 <body>
 
-<!-- ══════════════ AMBIENT ORBS ══════════════ -->
+<!-- AMBIENT BACKGROUND -->
 <div class="ambient-bg">
   <div class="ambient-orb orb-1"></div>
   <div class="ambient-orb orb-2"></div>
   <div class="ambient-orb orb-3"></div>
 </div>
 
-<!-- ══════════════ TOP NAV ══════════════ -->
+<!-- TOP NAV -->
 <nav class="nav">
   <div class="nav-logo">
     <div class="nav-logo-icon">🛰️</div>
@@ -30,14 +29,11 @@
       <div class="nav-logo-sub">SIH26169 · ISRO FSOC</div>
     </div>
   </div>
-
-  <!-- These nav buttons switch .tab-pane panels via app.js .tab-btn logic -->
-  <div class="nav-tabs" id="nav-tab-strip">
+  <div class="nav-tabs">
     <button class="nav-tab tab-btn active" data-tab="tab-tracker">🎯 Live Tracker</button>
     <button class="nav-tab tab-btn" data-tab="tab-analytics">📊 Analytics</button>
     <button class="nav-tab tab-btn" data-tab="tab-about">🛸 About</button>
   </div>
-
   <div class="nav-right">
     <span id="ai-model-status" class="ai-status">⚡ AI: Loading…</span>
     <div class="nav-status">
@@ -48,58 +44,70 @@
   </div>
 </nav>
 
-<!-- ══════════════ MAIN ══════════════ -->
+<!-- MAIN -->
 <main class="main">
 
-<!-- ─────────────────────────────────────────
+<!-- ══════════════════════════════════
      TAB 1 — LIVE TRACKER
-───────────────────────────────────────── -->
+══════════════════════════════════ -->
 <div class="tab-pane active" id="tab-tracker">
   <div class="tracker-layout">
 
-    <!-- LEFT: Camera + HUD -->
+    <!-- LEFT COLUMN -->
     <div class="camera-col">
 
-      <!-- FSM Banner (hidden, updated by app.js) -->
+      <!-- FSM Banner -->
       <div id="hud-banner" class="hud-banner-pill state-idle">IDLE</div>
 
-      <!-- Camera Card -->
-      <div class="camera-card" id="camera-card">
+      <!-- CAMERA CARD -->
+      <div class="camera-card">
 
-        <!-- Idle Overlay (shown when webcam off) -->
+        <!-- Idle Overlay -->
         <div class="camera-idle" id="camera-idle-overlay">
           <div class="idle-icon">📡</div>
           <div class="idle-title">OptiTrack AI Ready</div>
-          <div class="idle-sub">AI live-camera tracking for FSOC terminal alignment.<br/>Grant camera permission and click Start.</div>
-          <button class="btn-start" id="btn-start-webcam">🎥 Start Live Camera</button>
+          <div class="idle-sub">AI live-camera tracking for FSOC terminal alignment.</div>
+
+          <!-- FILE:// PROTOCOL WARNING — shown by JS if needed -->
+          <div id="protocol-warning" style="display:none;padding:12px 18px;background:rgba(236,72,153,.12);border:1px solid rgba(236,72,153,.35);border-radius:12px;font-size:12.5px;color:#f9a8d4;text-align:center;max-width:360px;line-height:1.7;">
+            ⚠️ <strong>Camera requires a local server</strong><br/>
+            You're opening the file directly — camera is blocked.<br/>
+            Open <strong>PowerShell</strong> in your project folder and run:<br/>
+            <code style="display:inline-block;margin-top:6px;padding:3px 10px;background:rgba(0,0,0,.4);border-radius:6px;font-size:11px;color:#06b6d4;">python server.py</code><br/>
+            Then open <strong>http://localhost:8080</strong>
+          </div>
+
+          <button class="btn-start" id="btn-start-webcam" style="margin-top:4px;">
+            🎥 Start Live Camera
+          </button>
           <div id="source-badge" class="source-badge">CLICK TO ACTIVATE CAMERA</div>
         </div>
 
-        <!-- Actual Camera Canvas (drawn by camera.js) -->
-        <canvas id="camera-canvas"></canvas>
+        <!-- Camera canvas (drawn by camera.js + detector.js) -->
+        <canvas id="camera-canvas" style="width:100%;display:block;border-radius:20px;"></canvas>
 
-        <!-- HUD Corner Brackets -->
+        <!-- HUD Corner Brackets (shown when active) -->
         <div class="hud-corners" id="hud-corners">
           <div class="hc tl"></div><div class="hc tr"></div>
           <div class="hc bl"></div><div class="hc br"></div>
         </div>
 
-        <!-- Entity Count Badge -->
+        <!-- Entity Count (floating badge on camera) -->
         <div id="entity-counter-badge" class="entity-counter">SCANNING FOR OBJECTS…</div>
 
-        <!-- Bottom Controls -->
+        <!-- Bottom Controls Bar -->
         <div class="cam-bottom-bar">
-          <div style="display:flex;gap:8px;align-items:center;">
-            <select id="camera-device-select" class="cam-select"></select>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select id="camera-device-select" class="cam-select"><option>Default Camera</option></select>
             <select id="scenario-select" class="cam-select">
               <option value="WEBCAM_LIVE">📷 Live Camera</option>
               <option value="T1">T1: Stationary Beacon</option>
               <option value="T2">T2: Linear Sweep</option>
               <option value="T3">T3: Sinusoidal Path</option>
               <option value="T4">T4: High Noise</option>
-              <option value="T5">T5: Atmospheric Blur</option>
+              <option value="T5">T5: Atm. Blur</option>
               <option value="T6">T6: Eclipse Dropout</option>
-              <option value="T7">T7: Step Acceleration</option>
+              <option value="T7">T7: Step Accel</option>
               <option value="T8">T8: Distractor Stars</option>
             </select>
             <select id="target-priority-select" class="cam-select">
@@ -109,33 +117,39 @@
               <option value="OBJECT">📦 Object</option>
               <option value="BEACON">💡 Beacon</option>
             </select>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button class="cam-pill-btn" id="btn-mirror-toggle">⇄ Mirror</button>
-            <button class="cam-pill-btn" id="btn-play-pause">⏸ Pause</button>
-            <button class="cam-pill-btn" id="btn-reset">↺ Reset</button>
-            <button class="cam-pill-btn" id="btn-record">⏺ Record</button>
             <select id="steering-mode-select" class="cam-select">
               <option value="AUTO">🤖 Auto</option>
               <option value="MANUAL">🕹 Manual</option>
             </select>
           </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="cam-pill-btn" id="btn-mirror-toggle">⇄ Mirror</button>
+            <button class="cam-pill-btn" id="btn-play-pause">⏸ Pause</button>
+            <button class="cam-pill-btn" id="btn-reset">↺ Reset</button>
+            <button class="cam-pill-btn" id="btn-record">⏺ Record</button>
+            <button class="cam-pill-btn" id="btn-export-csv">⬇ CSV</button>
+          </div>
         </div>
       </div><!-- /camera-card -->
 
-      <!-- World/Gimbal Canvas (hidden below, used by simulator.js) -->
-      <div class="gimbal-row">
-        <div class="gimbal-label">🔭 Virtual Gimbal View</div>
-        <div class="gimbal-wrap">
-          <canvas id="world-canvas"></canvas>
+      <!-- VIRTUAL GIMBAL — full width below camera -->
+      <div class="gimbal-card">
+        <div class="gimbal-header">
+          <div>
+            <div class="gimbal-title">🔭 Virtual Gimbal View</div>
+            <div class="gimbal-sub">Real-time FSOC receiver pointing simulation</div>
+          </div>
+          <button class="cam-pill-btn" id="btn-run-all-benchmarks" style="font-size:11.5px;">⚡ Run Benchmark</button>
         </div>
-        <!-- Mask preview (used by detector.js) -->
-        <div id="mask-preview-container" class="mask-preview"></div>
+        <!-- world-canvas: simulator.js reads its own .width/.height so set both attrs -->
+        <canvas id="world-canvas" width="860" height="260" style="width:100%;height:260px;display:block;background:#050810;border-radius:10px;"></canvas>
+        <!-- Mask preview inserted here by detector.js -->
+        <div id="mask-preview-container" style="margin-top:8px;"></div>
       </div>
 
     </div><!-- /camera-col -->
 
-    <!-- RIGHT: Telemetry Side Panel -->
+    <!-- RIGHT COLUMN — Telemetry Panel -->
     <div class="side-col">
 
       <!-- Clock -->
@@ -175,7 +189,7 @@
       <div class="tele-card">
         <div class="card-title">Detection Filters</div>
         <div class="toggle-grid">
-          <button class="cat-toggle active human" id="toggle-category-human">👤 Humans</button>
+          <button class="cat-toggle active human"  id="toggle-category-human">👤 Humans</button>
           <button class="cat-toggle active animal" id="toggle-category-animal">🐾 Animals</button>
           <button class="cat-toggle active object" id="toggle-category-object">📦 Objects</button>
           <button class="cat-toggle active beacon" id="toggle-category-beacon">💡 Beacons</button>
@@ -191,99 +205,64 @@
         </div>
       </div>
 
-      <!-- Advanced Tuning (collapsed) -->
+      <!-- Advanced Tuning -->
       <details class="tele-card tuning-details">
         <summary class="card-title">⚙ Advanced Tuning</summary>
         <div class="tuning-grid">
-          <div class="tuning-row">
-            <label>Hue Min</label>
+          <div class="tuning-row"><label>Hue Min</label>
             <input type="range" id="slider-hue-min" min="0" max="180" value="40"/>
-            <span id="slider-hue-min-val">40</span>
-          </div>
-          <div class="tuning-row">
-            <label>Hue Max</label>
+            <span id="slider-hue-min-val">40</span></div>
+          <div class="tuning-row"><label>Hue Max</label>
             <input type="range" id="slider-hue-max" min="0" max="180" value="80"/>
-            <span id="slider-hue-max-val">80</span>
-          </div>
-          <div class="tuning-row">
-            <label>Sat Min</label>
+            <span id="slider-hue-max-val">80</span></div>
+          <div class="tuning-row"><label>Sat Min</label>
             <input type="range" id="slider-sat-min" min="0" max="255" value="80"/>
-            <span id="slider-sat-min-val">80</span>
-          </div>
-          <div class="tuning-row">
-            <label>Val Min</label>
+            <span id="slider-sat-min-val">80</span></div>
+          <div class="tuning-row"><label>Val Min</label>
             <input type="range" id="slider-val-min" min="0" max="255" value="80"/>
-            <span id="slider-val-min-val">80</span>
-          </div>
-          <div class="tuning-row">
-            <label>Intensity</label>
+            <span id="slider-val-min-val">80</span></div>
+          <div class="tuning-row"><label>Intensity</label>
             <input type="range" id="slider-intensity-min" min="100" max="250" value="180"/>
-            <span id="slider-intensity-min-val">180</span>
-          </div>
-          <div class="tuning-row">
-            <label>Kalman Q</label>
+            <span id="slider-intensity-min-val">180</span></div>
+          <div class="tuning-row"><label>Kalman Q</label>
             <input type="range" id="slider-kalman-q" min="1" max="50" value="12"/>
-            <span id="slider-kalman-q-val">12</span>
-          </div>
-          <div class="tuning-row">
-            <label>Kalman R</label>
+            <span id="slider-kalman-q-val">12</span></div>
+          <div class="tuning-row"><label>Kalman R</label>
             <input type="range" id="slider-kalman-r" min="1" max="100" value="35"/>
-            <span id="slider-kalman-r-val">35</span>
-          </div>
-          <div class="tuning-row">
-            <label>Horizon</label>
+            <span id="slider-kalman-r-val">35</span></div>
+          <div class="tuning-row"><label>Horizon</label>
             <input type="range" id="slider-kalman-horizon" min="1" max="20" value="12"/>
-            <span id="slider-kalman-horizon-val">12</span>
-          </div>
-          <div class="tuning-row">
-            <label>PID Kp</label>
+            <span id="slider-kalman-horizon-val">12</span></div>
+          <div class="tuning-row"><label>PID Kp</label>
             <input type="range" id="slider-pid-kp" min="1" max="30" value="8"/>
-            <span id="slider-pid-kp-val">8</span>
-          </div>
-          <div class="tuning-row">
-            <label>PID Kd</label>
+            <span id="slider-pid-kp-val">8</span></div>
+          <div class="tuning-row"><label>PID Kd</label>
             <input type="range" id="slider-pid-kd" min="0" max="20" value="4"/>
-            <span id="slider-pid-kd-val">4</span>
-          </div>
+            <span id="slider-pid-kd-val">4</span></div>
         </div>
       </details>
-
-      <!-- Export -->
-      <div style="display:flex;gap:10px;">
-        <button class="btn-action" id="btn-export-csv">⬇ Export CSV</button>
-        <button class="btn-action primary" id="btn-run-all-benchmarks">⚡ Benchmark</button>
-      </div>
 
     </div><!-- /side-col -->
   </div><!-- /tracker-layout -->
 </div>
 
-<!-- ─────────────────────────────────────────
+<!-- ══════════════════════════════════
      TAB 2 — ANALYTICS
-───────────────────────────────────────── -->
+══════════════════════════════════ -->
 <div class="tab-pane" id="tab-analytics">
   <div class="analytics-layout">
-
     <div class="analytics-row two-col">
-      <!-- Error Chart -->
       <div class="chart-card">
         <div class="chart-title">📉 Boresight Pointing Error</div>
         <div class="chart-sub">Rolling 100-frame history vs ISRO 10 px coarse spec</div>
-        <div class="chart-wrap">
-          <canvas id="error-chart-canvas"></canvas>
-        </div>
+        <div class="chart-wrap"><canvas id="error-chart-canvas"></canvas></div>
       </div>
-      <!-- Latency Chart -->
       <div class="chart-card">
         <div class="chart-title">⚡ Processing Latency</div>
         <div class="chart-sub">Per-frame detection + Kalman + PID loop time</div>
-        <div class="chart-wrap">
-          <canvas id="latency-chart-canvas"></canvas>
-        </div>
+        <div class="chart-wrap"><canvas id="latency-chart-canvas"></canvas></div>
       </div>
     </div>
-
-    <!-- Benchmark Table -->
     <div class="chart-card full">
       <div class="chart-title">🏆 Official Benchmark Scorecard — SIH26169</div>
       <div class="chart-sub">8 synthetic FSOC scenarios tested against ISRO specification targets</div>
@@ -291,44 +270,33 @@
         <table class="bench-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Scenario</th>
-              <th>Target Error</th>
-              <th>MAE</th>
-              <th>P95</th>
-              <th>Lock %</th>
-              <th>Reacq</th>
-              <th>Latency</th>
-              <th>Result</th>
-              <th>Action</th>
+              <th>ID</th><th>Scenario</th><th>Target</th>
+              <th>MAE</th><th>P95</th><th>Lock %</th>
+              <th>Reacq</th><th>Latency</th><th>Result</th><th>Action</th>
             </tr>
           </thead>
           <tbody id="benchmark-table-body">
-            <tr>
-              <td colspan="10" style="text-align:center;color:var(--text-muted);padding:28px;">
-                Click ⚡ Benchmark on the Live Tracker tab to run all 8 scenarios.
-              </td>
-            </tr>
+            <tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:28px;">
+              Run ⚡ Benchmark from the Live Tracker tab to see results.
+            </td></tr>
           </tbody>
         </table>
       </div>
     </div>
-
   </div>
 </div>
 
-<!-- ─────────────────────────────────────────
+<!-- ══════════════════════════════════
      TAB 3 — ABOUT
-───────────────────────────────────────── -->
+══════════════════════════════════ -->
 <div class="tab-pane" id="tab-about">
   <div class="about-layout">
-
     <div class="about-hero">
-      <div class="about-hero-inner">
+      <div>
         <div style="font-size:48px;margin-bottom:16px;">🛰️</div>
         <h1>AI-Based Virtual Camera Tracking<br/><span>for FSOC Terminal Alignment</span></h1>
         <p>ISRO Smart India Hackathon 2026 · Problem Statement <strong>SIH26169</strong><br/>
-        Automated coarse alignment of mobile Free Space Optical Communication terminals using real-time AI.</p>
+        Automated coarse alignment of mobile Free Space Optical Communication terminals.</p>
         <div class="hero-tags">
           <span class="htag primary">SIH26169</span>
           <span class="htag">ISRO FSOC</span>
@@ -337,23 +305,21 @@
           <span class="htag">Kalman Filter</span>
           <span class="htag">PID Control</span>
           <span class="htag">WebRTC</span>
-          <span class="htag">Canvas API</span>
         </div>
       </div>
     </div>
-
     <div class="about-cards">
       <div class="about-card">
         <h3>🎯 Problem Statement</h3>
-        <p>Mobile FSOC terminals need rapid optical axis alignment to establish high-bandwidth laser links. Manual coarse alignment is slow and error-prone in field conditions. This system uses AI computer vision to fully automate the acquisition phase, reducing lock time from minutes to under 500 ms.</p>
+        <p>Mobile FSOC terminals need rapid optical axis alignment for high-bandwidth laser links. Manual coarse alignment is slow. This system uses AI computer vision to fully automate the acquisition phase, reducing lock time to under 500 ms.</p>
       </div>
       <div class="about-card">
         <h3>💡 Innovation</h3>
         <ul>
           <li>Live laptop webcam — no pre-recorded datasets</li>
-          <li>Universal AI detection: humans, animals, vehicles, 80+ object classes</li>
+          <li>Universal AI detection: humans, animals, vehicles, 80+ classes</li>
           <li>Sub-pixel beacon localization via optical moment analysis</li>
-          <li>4-state Kalman filter for trajectory prediction &amp; smoothing</li>
+          <li>4-state Kalman filter for trajectory prediction</li>
           <li>5-state FSM: IDLE → ACQUIRING → TRACKING → LOCKED → LOST</li>
           <li>PID closed-loop virtual gimbal controller</li>
         </ul>
@@ -364,7 +330,7 @@
           <li>WebRTC MediaDevices API — zero-latency camera capture</li>
           <li>COCO-SSD MobileNet-v2 — 80+ classes @ 60 FPS</li>
           <li>NMS (IoU-based) + EMA temporal smoothing</li>
-          <li>Click-to-lock: select any detected entity as primary target</li>
+          <li>Click-to-lock: select any detected entity as target</li>
           <li>Color pipette beacon sampling on empty-space click</li>
           <li>8-scenario synthetic benchmark suite for ISRO evaluation</li>
         </ul>
@@ -392,30 +358,26 @@
           <span class="tech-pill">5-State FSM</span>
           <span class="tech-pill">IoU-based NMS</span>
           <span class="tech-pill">EMA Temporal Smoothing</span>
-          <span class="tech-pill">Python Flask (optional)</span>
-          <span class="tech-pill">SQLite Persistence</span>
-          <span class="tech-pill">GitHub Pages CI/CD</span>
+          <span class="tech-pill">Python Flask</span>
+          <span class="tech-pill">SQLite</span>
+          <span class="tech-pill">GitHub Pages</span>
         </div>
-        <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
-          <strong style="color:var(--text-secondary);font-size:12px;letter-spacing:.08em;text-transform:uppercase;">Deployment Note</strong>
-          <p style="margin-top:8px;font-size:13px;color:var(--text-secondary);line-height:1.6;">
-            This is a fully static web app — zero install, zero build step. Works on GitHub Pages with HTTPS,
-            which automatically enables WebRTC camera access. The optional Python server adds CSV telemetry
-            persistence when run locally via <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;">python server.py</code>.
-          </p>
-        </div>
+        <p style="margin-top:16px;font-size:13px;color:var(--text-2);line-height:1.6;">
+          Pure static web app — zero install, zero build. Run via
+          <code style="background:rgba(255,255,255,.08);padding:2px 7px;border-radius:4px;">python server.py</code>
+          locally on <strong>http://localhost:8080</strong>, or deploy to GitHub Pages for HTTPS camera access.
+        </p>
       </div>
     </div>
-
   </div>
 </div>
 
-</main><!-- /main -->
+</main>
 
-<!-- ══════════════ TOAST ══════════════ -->
+<!-- TOAST -->
 <div id="toast-container"></div>
 
-<!-- ══════════════ SCRIPTS ══════════════ -->
+<!-- SCRIPTS — exact original load order -->
 <script src="js/audio.js"></script>
 <script src="js/fsm.js"></script>
 <script src="js/kalman.js"></script>
@@ -429,53 +391,117 @@
 <script src="js/app.js"></script>
 
 <script>
-/* ═══════════════════════════════════════════════════
-   UI Glue — wires new nav design to app.js's tab system
-═══════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════
+   OptiTrack UI Bridge
+   - Detects file:// protocol and shows warning
+   - Hides/shows idle overlay based on camera state
+   - Provides status dot sync and toast helpers
+══════════════════════════════════════════════════ */
 
-// Status dot sync
-(function() {
-  const dot = document.getElementById('status-dot-nav');
-  // Watch status-pill-text for changes and sync dot
-  const pill = document.getElementById('status-pill-text');
-  if (!pill || !dot) return;
-  const obs = new MutationObserver(() => {
-    const live = pill.textContent.includes('LIVE') || pill.textContent.includes('ACTIVE');
-    dot.classList.toggle('live', live);
-  });
-  obs.observe(pill, { childList: true, characterData: true, subtree: true });
-})();
+// 1. Protocol check — must run immediately
+if (location.protocol === 'file:') {
+  document.getElementById('protocol-warning').style.display = 'block';
+}
 
-// Camera idle overlay — hide when webcam activates
-(function() {
-  const overlay = document.getElementById('camera-idle-overlay');
-  const canvas  = document.getElementById('camera-canvas');
-  if (!overlay || !canvas) return;
-
-  // Poll for webcam state (app.js sets camera.isWebcamActive)
-  setInterval(() => {
-    const app = window.optiTrackApp;
-    if (!app) return;
-    const active = app.camera && app.camera.isWebcamActive;
-    overlay.style.display = active ? 'none' : 'flex';
-  }, 500);
-})();
-
-// Toast helper accessible globally
-function showToast(msg, type) {
+// 2. Toast helper (used by whole app)
+window.showToast = function(msg, type) {
   const c = document.getElementById('toast-container');
   if (!c) return;
   const t = document.createElement('div');
-  const icons = { success:'✅', error:'❌', info:'ℹ️' };
   t.className = 'toast ' + (type || 'info');
-  t.innerHTML = (icons[type] || 'ℹ️') + ' ' + msg;
+  t.textContent = msg;
   c.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
-}
-window.showToast = showToast;
+  setTimeout(() => t.remove(), 4500);
+};
 
-console.log('%c🛰️ OptiTrack AI — SIH26169', 'color:#7c3aed;font-size:16px;font-weight:bold');
-console.log('%cISRO FSOC Virtual Camera Tracking | github.com/SUDHAKAR1104/optitrack-ai', 'color:#06b6d4;font-size:12px');
+// 3. Status dot sync via MutationObserver on status pill
+(function() {
+  const dot  = document.getElementById('status-dot-nav');
+  const pill = document.getElementById('status-pill-text');
+  if (!pill || !dot) return;
+  const sync = () => {
+    const live = /LIVE|ACTIVE/i.test(pill.textContent);
+    dot.classList.toggle('live', live);
+  };
+  new MutationObserver(sync).observe(pill, { childList: true, characterData: true, subtree: true });
+})();
+
+// 4. Camera overlay management + button feedback
+//    Runs AFTER app.js DOMContentLoaded initialises window.optiTrackApp
+window.addEventListener('load', function() {
+
+  // ── Overlay hide / show (poll every 250 ms) ──
+  const overlay = document.getElementById('camera-idle-overlay');
+  setInterval(function() {
+    var app = window.optiTrackApp;
+    if (!app || !app.camera) return;
+    if (app.camera.isWebcamActive) {
+      if (overlay) overlay.style.display = 'none';
+      var dot = document.getElementById('status-dot-nav');
+      if (dot) dot.classList.add('live');
+    } else {
+      if (overlay) overlay.style.display = 'flex';
+    }
+  }, 250);
+
+  // ── Patch updateWebcamUIState for button feedback + toasts ──
+  var app = window.optiTrackApp;
+  if (!app) return;
+
+  var _origUpdate = app.updateWebcamUIState.bind(app);
+  app.updateWebcamUIState = function(active) {
+    _origUpdate(active);
+    var btn = document.getElementById('btn-start-webcam');
+    if (btn) {
+      btn.textContent = active ? '🟢 Camera Active' : '🎥 Start Live Camera';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+    if (active) {
+      window.showToast('✅ Camera started — AI detection running!', 'success');
+    } else if (app.camera && app.camera.webcamError) {
+      window.showToast('⚠️ ' + app.camera.webcamError, 'error');
+    }
+  };
+
+  // ── Replace button with one that shows loading state ──
+  //    (original listener from app.js is already on the old button;
+  //    we clone it, then add our own richer handler)
+  var oldBtn = document.getElementById('btn-start-webcam');
+  if (oldBtn) {
+    var newBtn = oldBtn.cloneNode(true); // removes old listeners
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+
+    newBtn.addEventListener('click', async function() {
+      // Guard: file:// will never work
+      if (location.protocol === 'file:') {
+        window.showToast('Open http://localhost:8080 instead — camera blocked on file://', 'error');
+        return;
+      }
+      newBtn.textContent = '⏳ Requesting camera…';
+      newBtn.disabled = true;
+      newBtn.style.opacity = '0.65';
+      // Init audio context (requires user gesture)
+      if (window.telemetryAudio) window.telemetryAudio.init();
+      var ok = await app.camera.enableWebcam();
+      app.updateWebcamUIState(ok);
+    });
+  }
+
+  // ── Resize world-canvas to match its container width ──
+  function resizeGimbal() {
+    var wc = document.getElementById('world-canvas');
+    if (!wc) return;
+    var parent = wc.parentElement;
+    if (!parent) return;
+    var w = parent.clientWidth || 860;
+    wc.width  = w;
+    wc.height = 260;
+  }
+  resizeGimbal();
+  window.addEventListener('resize', resizeGimbal);
+
+});
 </script>
 
 </body>
