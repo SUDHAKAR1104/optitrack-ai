@@ -267,8 +267,13 @@
       </div>
     </div>
     <div class="chart-card full">
-      <div class="chart-title">🏆 Official Benchmark Scorecard — SIH26169</div>
-      <div class="chart-sub">8 synthetic FSOC scenarios tested against ISRO specification targets</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+        <div>
+          <div class="chart-title">🏆 Official Benchmark Scorecard — SIH26169</div>
+          <div class="chart-sub">8 synthetic FSOC scenarios evaluated against ISRO specification targets</div>
+        </div>
+        <button class="btn-start" id="btn-run-all-benchmarks-analytics" style="padding:9px 22px; font-size:12.5px;">⚡ Run Complete Benchmark Suite (8 Scenarios)</button>
+      </div>
       <div style="overflow-x:auto;">
         <table class="bench-table">
           <thead>
@@ -280,7 +285,7 @@
           </thead>
           <tbody id="benchmark-table-body">
             <tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:28px;">
-              Run ⚡ Benchmark from the Live Tracker tab to see results.
+              Click ⚡ Run Complete Benchmark Suite to evaluate all 8 ISRO scenarios.
             </td></tr>
           </tbody>
         </table>
@@ -508,6 +513,17 @@ window.addEventListener('load', function() {
   }
   resizeGimbal();
   window.addEventListener('resize', resizeGimbal);
+
+  // ── Run Full Benchmark Suite button on Analytics tab ──
+  var benchAnalyticsBtn = document.getElementById('btn-run-all-benchmarks-analytics');
+  if (benchAnalyticsBtn) {
+    benchAnalyticsBtn.addEventListener('click', function() {
+      if (app && app.benchmarkRunner) {
+        window.showToast('🚀 Running official 8-scenario benchmark suite…', 'info');
+        app.benchmarkRunner.startAllTests();
+      }
+    });
+  }
 
 });
 </script>

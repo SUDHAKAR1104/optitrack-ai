@@ -42,7 +42,7 @@ class UniversalAIDetector {
     this.hueMax = 360;
     this.satMin = 0;
     this.valMin = 70;
-    this.minIntensity = 180;   // higher = only bright light sources
+    this.minIntensity = 135;   // Optimal for laser beacon & blurred/scintillating atmospheric conditions
     this.minArea = 4;           // detect even tiny beacons
     this.maxArea = 15000;
 
@@ -539,9 +539,14 @@ class UniversalAIDetector {
 
       // Sub-pixel centroid via Gaussian (lum²) weighting
       let m00 = 0, m10 = 0, m01 = 0;
+      let totalFlux = 0;
+      let peakLum = 0;
+
       for (const p of blob.pixels) {
         const w = p.lum * p.lum;
         m00 += w; m10 += p.x * w; m01 += p.y * w;
+        totalFlux += p.lum;
+        if (p.lum > peakLum) peakLum = p.lum;
       }
       if (m00 <= 0) continue;
       const cx = m10 / m00;
@@ -555,28 +560,32 @@ class UniversalAIDetector {
       const perimeter = 2 * (bw + bh);
       const circularity = (4 * Math.PI * area) / (perimeter * perimeter + 1e-9);
 
-      // Compactness: how filled is the bounding box
-      const compactness = area / Math.max(1, bw * bh);
+      // Optical flux score (favors true laser beam over tiny false stars/noise pinpoints)
+      const fluxScore = Math.min(1.0, totalFlux / 5000);
 
-      // Peak luminance (use max lum of pixels)
-      const peakLum = blob.pixels.reduce((mx, p) => Math.max(mx, p.lum), 0);
-
-      // Proximity to Kalman prediction (if available)
-      let proximityScore = 0;
+      // Proximity to Kalman prediction (Validation Gate)
+      let proximityScore = 0.5;
       if (predictedPos && predictedPos.x !== undefined) {
         const dist = Math.hypot(cx - predictedPos.x, cy - predictedPos.y);
-        proximityScore = Math.exp(-dist / 80); // peaks at 1 when on prediction
+        if (dist <= 35) {
+          proximityScore = 1.0;
+        } else if (dist <= 85) {
+          proximityScore = Math.exp(-dist / 35);
+        } else {
+          // Strong penalty outside validation gate to discard distractor stars
+          proximityScore = 0.05;
+        }
       }
 
-      // Combined score: weight circularity, brightness, prediction proximity
-      const score = (circularity * 0.35) +
-                    (compactness  * 0.20) +
-                    (peakLum / 255 * 0.25) +
-                    (proximityScore * 0.20);
+      // Combined score: high optical flux, circularity, brightness, Kalman gate
+      const score = (circularity * 0.20) +
+                    (fluxScore   * 0.35) +
+                    (peakLum / 255 * 0.15) +
+                    (proximityScore * 0.30);
 
       if (score > bestScore) {
         bestScore = score;
-        bestBlob = { blob, cx, cy, area, bw, bh, circularity, compactness, peakLum, score };
+        bestBlob = { blob, cx, cy, area, bw, bh, circularity, peakLum, totalFlux, score };
       }
     }
 

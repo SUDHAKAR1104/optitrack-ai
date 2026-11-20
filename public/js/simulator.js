@@ -119,6 +119,22 @@ class WorldSimulator {
         const cycle = t % 6.0;
         this.beacon.isOccluded = (cycle >= 2.0 && cycle <= 3.5);
         break;
+      case 'T7':
+        // Abrupt 90-Degree Step Acceleration at t = 2.0s
+        if (t < 2.0) {
+          this.beacon.x += this.beacon.vx * dt;
+          this.beacon.y += this.beacon.vy * dt;
+        } else if (t < 2.05) {
+          this.beacon.vx = 0;
+          this.beacon.vy = 65;
+          this.beacon.x += this.beacon.vx * dt;
+          this.beacon.y += this.beacon.vy * dt;
+        } else {
+          this.beacon.x += this.beacon.vx * dt;
+          this.beacon.y += this.beacon.vy * dt;
+          if (Math.abs(this.beacon.y) > 170) this.beacon.vy *= -1;
+        }
+        break;
       default:
         this.beacon.x += this.beacon.vx * dt;
         this.beacon.y += this.beacon.vy * dt;

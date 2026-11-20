@@ -340,11 +340,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;heigh
 .bench-table th{text-align:left;padding:10px 14px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);font-weight:600;border-bottom:1px solid var(--border)}
 .bench-table td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text-2)}
 .bench-table tr:hover td{background:rgba(255,255,255,.03)}
-.badge-tag{display:inline-block;padding:3px 10px;border-radius:50px;font-size:10px;font-weight:700;letter-spacing:.06em}
-.badge-tag.pass,.badge-tag.pass{background:rgba(16,185,129,.15);color:#6ee7b7}
-.badge-tag.fail{background:rgba(236,72,153,.15);color:#f9a8d4}
-.badge-tag.pending{background:rgba(71,85,105,.15);color:#94a3b8}
-.badge-tag.running,.badge-tag.in_progress{background:rgba(245,158,11,.15);color:#fcd34d}
+.badge-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:50px;font-size:10.5px;font-weight:700;letter-spacing:.06em}
+.badge-tag.pass{background:rgba(16,185,129,.18);border:1px solid rgba(16,185,129,.4);color:#6ee7b7;box-shadow:0 0 10px rgba(16,185,129,.2)}
+.badge-tag.fail{background:rgba(236,72,153,.18);border:1px solid rgba(236,72,153,.4);color:#f9a8d4}
+.badge-tag.pending{background:rgba(71,85,105,.15);border:1px solid rgba(71,85,105,.3);color:#94a3b8}
+.badge-tag.running,.badge-tag.in_progress{background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.45);color:#fcd34d;animation:pulse-dot 1.2s infinite}
 .btn-sm{padding:4px 12px;border-radius:50px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text-2);font-size:11px;cursor:pointer;transition:var(--ease)}
 .btn-sm:hover{background:rgba(124,58,237,.2);border-color:rgba(124,58,237,.5);color:#c4b5fd}
 
